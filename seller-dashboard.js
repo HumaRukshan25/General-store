@@ -101,3 +101,4 @@ function loadInventoryFromApi() {
 
 // Load the inventory from the API when the page loads
 loadInventoryFromApi();
+//comment
