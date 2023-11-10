@@ -1,120 +1,104 @@
-document.addEventListener("DOMContentLoaded", function () {
-    const itemsList = document.getElementById("items-list");
-    const itemForm = document.getElementById("item-form");
-    const itemInput = document.getElementById("item-name");
-    const priceInput = document.getElementById("item-price");
-    const descriptionInput = document.getElementById("item-description");
-    const quantityInput = document.getElementById("item-quantity");
-    const addItemBtn = document.getElementById("add-item");
-    const updateQuantityInput = document.getElementById("update-quantity");
-    const updateSoldInput = document.getElementById("update-sold");
-    const updateItemBtn = document.getElementById("update-item");
+const inventory = [];
+const apiUrl = 'https://crudcrud.com/api/941aaf8e2bef46a78d8322929c4348f0/inventory';
 
-    const crudCrudApiUrl = 'https://crudcrud.com/api/b29498f7084845a4b58fb23351766d8a/items';
+function addItem() {
+  const itemName = document.getElementById('itemName').value;
+  const itemPrice = parseFloat(document.getElementById('itemPrice').value);
+  const itemDescription = document.getElementById('itemDescription').value;
+  const itemQuantity = parseInt(document.getElementById('itemQuantity').value);
 
-    const sellerData = {
-        items: [],
-        selectedIdx: -1, // Keep track of the selected item index
-        buy1Price: 0,
-        buy2Price: 0,
-    };
+  if (itemName && itemPrice && itemDescription && itemQuantity) {
+    const existingItemIndex = inventory.findIndex(item => item.name === itemName);
 
-    // Add item to the list and to CrudCrud
-    addItemBtn.addEventListener("click", function () {
-        const itemName = itemInput.value;
-        const itemPrice = parseFloat(priceInput.value);
-        const itemDescription = descriptionInput.value;
-        const itemQuantity = parseInt(quantityInput.value);
+    if (existingItemIndex !== -1) {
+      // If the item already exists, update the quantity and price
+      inventory[existingItemIndex].quantity += itemQuantity;
+    } else {
+      // If the item doesn't exist, add it to the inventory
+      inventory.push({ name: itemName, price: itemPrice, description: itemDescription, quantity: itemQuantity });
+    }
 
-        if (itemName && !isNaN(itemPrice) && itemDescription && !isNaN(itemQuantity)) {
-            const newItem = {
-                name: itemName,
-                price: itemPrice,
-                description: itemDescription,
-                quantity: itemQuantity,
-                sold: 0,
-            };
+    // Save the updated inventory to the API
+    saveInventoryToApi();
 
-            // Add item to CrudCrud
-            axios.post(crudCrudApiUrl, newItem)
-                .then((response) => {
-                    newItem._id = response.data._id; // Save _id from response
-                    sellerData.items.push(newItem);
-                    updateItemList();
-                })
-                .catch((error) => {
-                    console.error('Error adding item to CrudCrud:', error);
-                });
-        }
+    updateInventory();
+    clearForm();
+  }
+}
+
+function updateInventory() {
+  const inventoryBody = document.getElementById('inventoryBody');
+  inventoryBody.innerHTML = '';
+
+  inventory.forEach((item, index) => {
+    const row = document.createElement('tr');
+    row.innerHTML = `
+      <td>${item.name}</td>
+      <td>${item.price}</td>
+      <td>${item.description}</td>
+      <td>${item.quantity}</td>
+      <td><button onclick="sellItem(${index})">Sell</button> <button onclick="deleteItem(${index})">Delete</button></td>
+    `;
+    inventoryBody.appendChild(row);
+  });
+}
+
+function sellItem(index) {
+  const soldQuantity = parseInt(prompt(`Enter quantity sold for ${inventory[index].name}:`));
+  if (soldQuantity && soldQuantity <= inventory[index].quantity) {
+    inventory[index].quantity -= soldQuantity;
+
+    // Save the updated inventory to the API
+    saveInventoryToApi();
+
+    updateInventory();
+  } else {
+    alert('Invalid quantity or not enough quantity available.');
+  }
+}
+
+function deleteItem(index) {
+  inventory.splice(index, 1);
+
+  // Save the updated inventory to the API
+  saveInventoryToApi();
+
+  updateInventory();
+}
+
+function clearForm() {
+  document.getElementById('itemName').value = '';
+  document.getElementById('itemPrice').value = '';
+  document.getElementById('itemDescription').value = '';
+  document.getElementById('itemQuantity').value = '';
+}
+
+// Function to save the inventory to the API
+function saveInventoryToApi() {
+  axios.post(apiUrl, inventory)
+    .then(response => {
+      console.log('Inventory saved to API:', response.data);
+    })
+    .catch(error => {
+      console.error('Error saving inventory to API:', error);
     });
+}
 
-    // Update item quantity in the dashboard
-    updateItemBtn.addEventListener("click", function () {
-        const selectedIndex = sellerData.selectedIdx;
-        const selected = sellerData.items[selectedIndex];
-        const updateQuantity = parseInt(updateQuantityInput.value);
-        const updateSold = parseInt(updateSoldInput.value);
-
-        if (!isNaN(updateQuantity) && !isNaN(updateSold) &&
-            updateQuantity <= selected.quantity && updateSold <= updateQuantity) {
-            selected.sold = updateSold;
-            selected.quantity = updateQuantity;
-            updateItemInCrudCrud(selected);
-            updateItemList();
-        }
+// Function to load the inventory from the API
+function loadInventoryFromApi() {
+  axios.get(apiUrl)
+    .then(response => {
+      if (response.data && Array.isArray(response.data)) {
+        inventory.length = 0; // Clear the current inventory
+        inventory.push(...response.data); // Update with the data from the API
+        updateInventory(); // Update the HTML display
+      }
+    })
+    .catch(error => {
+      console.error('Error loading inventory from API:', error);
     });
+}
 
-    // Update the item list and prices
-    function updateItemList() {
-        itemsList.innerHTML = "";
-        for (let i = 0; i < sellerData.items.length; i++) {
-            const item = sellerData.items[i];
-            const itemPrice = calculateItemPrice(item.price);
-            const remainingQuantity = item.quantity - item.sold; // Calculate remaining quantity
-            itemsList.innerHTML += `<li>${item.name}: $${itemPrice.toFixed(2)}, Quantity: ${remainingQuantity} (Sold: ${item.sold}), Remaining: ${remainingQuantity}</li>`;
-        }
-    }
-
-    // Calculate item price based on quantity
-    function calculateItemPrice(price) {
-        if (price && sellerData.buy1Price && sellerData.buy2Price) {
-            if (sellerData.buy1Price <= price) {
-                if (sellerData.buy2Price <= price) {
-                    return sellerData.buy2Price;
-                } else {
-                    return sellerData.buy1Price;
-                }
-            }
-        }
-        return price;
-    }
-
-    // Function to update an item in CrudCrud
-    function updateItemInCrudCrud(item) {
-        const updateUrl = `${crudCrudApiUrl}/${item._id}`;
-        axios.put(updateUrl, { sold: item.sold, quantity: item.quantity })
-            .then((response) => {
-                console.log('Item updated in CrudCrud:', response.data);
-            })
-            .catch((error) => {
-                console.error('Error updating item in CrudCrud:', error);
-            });
-    }
-});
-// Update item quantity in the dashboard
-updateItemBtn.addEventListener("click", function () {
-    const selectedIndex = sellerData.selectedIdx;
-    if (selectedIndex !== -1) {
-        const selected = sellerData.items[selectedIndex];
-        const updateQuantity = parseInt(updateQuantityInput.value);
-        const updateSold = parseInt(updateSoldInput.value);
-
-        if (!isNaN(updateQuantity) && !isNaN(updateSold) &&
-            updateQuantity <= selected.quantity && updateSold <= updateQuantity) {
-            selected.sold = updateSold;
-            selected.quantity = updateQuantity;
-            updateItemInCrudCrud(selected);
-            updateItemList();
-        }
-    }
-});
+// Load the inventory from the API when the page loads
+loadInventoryFromApi();
+//comment
