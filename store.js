@@ -1,10 +1,10 @@
 // store.js
 
 // CRUD CRUD API base URL
-const apiUrl = 'https://crudcrud.com/api/34a543645d82432ca553007e1afabb3a';
+const apiUrl = 'https://crudcrud.com/api/d1e58999612a4b9a839f16e4dc0b3a24';
 
-// Function to fetch inventory from the API and render it
-// Function to fetch inventory from the API and render it
+
+//this is Function to fetch inventory from the API and render it
 async function fetchInventory() {
   try {
     const response = await axios.get(`${apiUrl}/inventory`);
@@ -23,6 +23,9 @@ async function fetchInventory() {
         <td>${item.quantity}</td>
         <td>
           <button onclick="sellItem('${item._id}', '${item.name}', ${item.quantity}, ${item.price || 0}, '${item.description || ''}')">Sell</button>
+          <button onclick="buyItem('${item._id}', '${item.name}', ${item.quantity}, ${item.price || 0}, '${item.description || ''}', 1)">Buy 1</button>
+          <button onclick="buyItem('${item._id}', '${item.name}', ${item.quantity}, ${item.price || 0}, '${item.description || ''}', 2)">Buy 2</button>
+          <button onclick="buyItem('${item._id}', '${item.name}', ${item.quantity}, ${item.price || 0}, '${item.description || ''}', 3)">Buy 3</button>
           <button onclick="deleteItem('${item._id}')">Delete</button>
         </td>
       `;
@@ -82,6 +85,26 @@ async function sellItem(itemId, itemName, currentQuantity, itemPrice, itemDescri
     console.error('Error selling item:', error);
   }
 }
+async function buyItem(itemId, itemName, currentQuantity, itemPrice, itemDescription, quantityToBuy) {
+  try {
+    // Calculate the new quantity after buying
+    const newQuantity = currentQuantity - quantityToBuy;
+
+    // Update the item with the new quantity, keeping the same name, price, and description
+    await axios.put(`${apiUrl}/inventory/${itemId}`, {
+      name: itemName,
+      price: itemPrice,
+      description: itemDescription,
+      quantity: newQuantity,
+    });
+
+    // Refresh inventory after buying items
+    fetchInventory();
+  } catch (error) {
+    console.error('Error buying item:', error);
+  }
+}
+
 
 // Function to delete an item
 async function deleteItem(itemId) {
